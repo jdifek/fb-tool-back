@@ -3,10 +3,12 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./swagger');
+const facebookAccountsRoutes = require('./routes/facebookAccountsRoutes');
 
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const { errorHandler } = require('./utils/errorHandler');
+const adAccountsRoutes = require('./routes/adAccountsRoutes');
 
 dotenv.config();
 
@@ -16,6 +18,9 @@ app.use(express.json());
 
 app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
+app.use('/accounts', facebookAccountsRoutes);
+app.use('/ad-accounts', adAccountsRoutes);
+
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use(errorHandler);
