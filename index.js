@@ -20,6 +20,8 @@ app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
 app.use('/accounts', facebookAccountsRoutes);
 app.use('/ad-accounts', adAccountsRoutes);
+app.use('/proxies', require('./routes/proxyRoutes'));
+
 
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

@@ -41,6 +41,7 @@ model FacebookAccount {
   adAccounts  AdAccount[]
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
+  Proxy       Proxy?
 }
 
 model AdAccount {
@@ -58,6 +59,24 @@ model AdAccount {
   hasPixel          Boolean
   notifications     Boolean         @default(false)
   autoCommenting    Boolean         @default(false)
+}
+
+model Proxy {
+  id                Int              @id @default(autoincrement())
+  ip                String
+  port              Int
+  username          String?
+  password          String?
+  status            ProxyStatus      @default(ACTIVE) // живой / неживой
+  facebookAccount   FacebookAccount? @relation(fields: [facebookAccountId], references: [id])
+  facebookAccountId Int?             @unique
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+}
+
+enum ProxyStatus {
+  ACTIVE
+  DEAD
 }
 
 enum FbAccountStatus {
