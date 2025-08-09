@@ -5,6 +5,8 @@
  *   description: Proxy management
  */
 
+const proxyController = require("../controllers/proxyController");
+
 /**
  * @swagger
  * /proxies:
