@@ -30,6 +30,14 @@ module.exports = {
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
+  },
+  async getProxies(req, res) {
+    try {
+      const proxies = await prisma.proxy.findMany();
+      res.json(proxies);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
   }
   
 };
