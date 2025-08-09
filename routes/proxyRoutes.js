@@ -1,11 +1,13 @@
+const router = require('express').Router();
+const proxyController = require('../controllers/proxyController');
+const authMiddleware = require('../middlewares/authMiddleware');
+
 /**
  * @swagger
  * tags:
  *   name: Proxies
  *   description: Proxy management
  */
-
-const proxyController = require("../controllers/proxyController");
 
 /**
  * @swagger
@@ -78,3 +80,5 @@ router.get('/', authMiddleware, proxyController.getProxies);
  *         description: Proxy linked successfully
  */
 router.patch('/:id/link', authMiddleware, proxyController.linkProxy);
+
+module.exports = router;
