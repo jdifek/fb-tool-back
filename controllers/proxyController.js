@@ -1,4 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient, ProxyStatus } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 module.exports = {
@@ -7,7 +7,13 @@ module.exports = {
       const { ip, port, username, password } = req.body;
   
       const proxy = await prisma.proxy.create({
-        data: { ip, port, username, password, status: 'INACTIVE' }
+        data: { 
+          ip, 
+          port, 
+          username, 
+          password, 
+          status: ProxyStatus.DEAD // ✅ enum, а не строка
+        }
       });
   
       res.json(proxy);

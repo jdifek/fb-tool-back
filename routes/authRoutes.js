@@ -116,5 +116,3 @@ router.get('/profile', authMiddleware, authController.profile);
 router.post('/change-password', authMiddleware, authController.changePassword);
 
 module.exports = router;
-
-module.exports = router;
