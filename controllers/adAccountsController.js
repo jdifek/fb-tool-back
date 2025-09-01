@@ -20,6 +20,44 @@ exports.getAdAccounts = async (req, res, next) => {
   }
 };
 
+// POST /ad-accounts
+exports.createAdAccount = async (req, res, next) => {
+  const { facebookAccountId, adAccountId, name, businessId, currency, timezone, hasCard, hasPixel } = req.body;
+
+  try {
+    const facebookAccount = await prisma.facebookAccount.findUnique({
+      where: { id: facebookAccountId }
+    });
+
+    if (!facebookAccount) {
+      return res.status(404).json({ message: 'Facebook account not found' });
+    }
+
+    const isOwner = facebookAccount.userId === req.user.id;
+    if (req.user.role !== 'SUPERADMIN' && !isOwner) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const adAccount = await prisma.adAccount.create({
+      data: {
+        facebookAccountId,
+        adAccountId,
+        name,
+        businessId,
+        currency,
+        timezone,
+        status: 'ACTIVE',
+        hasCard: hasCard || false,
+        hasPixel: hasPixel || false
+      }
+    });
+
+    res.status(201).json(adAccount);
+  } catch (err) {
+    next(err);
+  }
+};
+
 // DELETE /ad-accounts/:id
 exports.deleteAdAccount = async (req, res, next) => {
   const adAccountId = parseInt(req.params.id);

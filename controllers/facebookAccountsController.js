@@ -58,7 +58,84 @@ exports.getAccounts = async (req, res, next) => {
   const accounts = await prisma.facebookAccount.findMany({ where });
   res.json(accounts);
 };
+// PUT /accounts/:id
+exports.updateAccount = async (req, res, next) => {
+  const accountId = parseInt(req.params.id);
+  const { name, accessToken, status } = req.body;
 
+  try {
+    const account = await prisma.facebookAccount.findUnique({
+      where: { id: accountId }
+    });
+
+    if (!account) return res.status(404).json({ message: 'Account not found' });
+
+    if (req.user.role !== 'SUPERADMIN' && account.userId !== req.user.id) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const updated = await prisma.facebookAccount.update({
+      where: { id: accountId },
+      data: { name, accessToken, status }
+    });
+
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// PATCH /accounts/:id
+exports.patchAccount = async (req, res, next) => {
+  const accountId = parseInt(req.params.id);
+  const updates = req.body;
+
+  try {
+    const account = await prisma.facebookAccount.findUnique({
+      where: { id: accountId }
+    });
+
+    if (!account) return res.status(404).json({ message: 'Account not found' });
+
+    if (req.user.role !== 'SUPERADMIN' && account.userId !== req.user.id) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const updated = await prisma.facebookAccount.update({
+      where: { id: accountId },
+      data: updates
+    });
+
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// DELETE /accounts/:id
+exports.deleteAccount = async (req, res, next) => {
+  const accountId = parseInt(req.params.id);
+
+  try {
+    const account = await prisma.facebookAccount.findUnique({
+      where: { id: accountId }
+    });
+
+    if (!account) return res.status(404).json({ message: 'Account not found' });
+
+    if (req.user.role !== 'SUPERADMIN' && account.userId !== req.user.id) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    await prisma.facebookAccount.delete({
+      where: { id: accountId }
+    });
+
+    res.json({ message: 'Account deleted' });
+  } catch (err) {
+    next(err);
+  }
+};
 exports.getAdAccounts = async (req, res, next) => {
   const accountId = parseInt(req.params.id);
   const account = await prisma.facebookAccount.findUnique({

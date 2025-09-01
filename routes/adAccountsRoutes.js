@@ -4,6 +4,14 @@ const authMiddleware = require('../middlewares/authMiddleware');
 
 /**
  * @swagger
+ * /ad-accounts:
+ *   post:
+ *     summary: Create a new ad account
+ *     tags: [AdAccounts]
+ */
+router.post('/', authMiddleware, controller.createAdAccount);
+/**
+ * @swagger
  * tags:
  *   name: AdAccounts
  *   description: Facebook Ad Accounts management
