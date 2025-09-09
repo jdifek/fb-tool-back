@@ -32,13 +32,62 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *           type: array
  *           items:
  *             $ref: '#/components/schemas/AdAccount'
+ *         proxy:
+ *           $ref: '#/components/schemas/Proxy'
+ *     Proxy:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *         ip:
+ *           type: string
+ *         port:
+ *           type: integer
+ *         username:
+ *           type: string
+ *         password:
+ *           type: string
+ *         status:
+ *           type: string
+ *           enum: [ACTIVE, DEAD]
+ *         facebookAccountId:
+ *           type: integer
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *     ProxyInput:
+ *       type: object
+ *       required:
+ *         - ip
+ *         - port
+ *       properties:
+ *         ip:
+ *           type: string
+ *           description: Proxy IP address
+ *           example: "192.168.1.1"
+ *         port:
+ *           type: integer
+ *           description: Proxy port
+ *           example: 8080
+ *         username:
+ *           type: string
+ *           description: Proxy username (optional)
+ *         password:
+ *           type: string
+ *           description: Proxy password (optional)
+ *         status:
+ *           type: string
+ *           enum: [ACTIVE, DEAD]
+ *           default: DEAD
  */
-
 /**
  * @swagger
  * /accounts:
  *   post:
- *     summary: Add Facebook account via access token
+ *     summary: Add Facebook account via access token with optional proxy
  *     tags: [FacebookAccounts]
  *     security:
  *       - bearerAuth: []
@@ -54,15 +103,52 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *               accessToken:
  *                 type: string
  *                 description: Facebook access token
+ *               proxyId:
+ *                 type: integer
+ *                 description: Existing proxy ID
+ *                 example: 1
+ *               autoAssignProxy:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Automatically assign free proxy if no proxyId provided
+ *           examples:
+ *             withProxyId:
+ *               summary: Add account with existing proxy
+ *               value:
+ *                 accessToken: "EAABwzLixnjYBO..."
+ *                 proxyId: 5
+ *             autoProxy:
+ *               summary: Add account with auto-assigned proxy
+ *               value:
+ *                 accessToken: "EAABwzLixnjYBO..."
+ *                 autoAssignProxy: true
+ *             noProxy:
+ *               summary: Add account without proxy
+ *               value:
+ *                 accessToken: "EAABwzLixnjYBO..."
+ *
  *     responses:
  *       201:
  *         description: Facebook account added successfully
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/FacebookAccount'
+ *               allOf:
+ *                 - $ref: '#/components/schemas/FacebookAccount'
+ *                 - type: object
+ *                   properties:
+ *                     proxy:
+ *                       $ref: '#/components/schemas/Proxy'
  *       400:
  *         description: Bad request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Invalid access token"
  *       401:
  *         description: Unauthorized
  *       500:
@@ -73,19 +159,24 @@ const authMiddleware = require('../middlewares/authMiddleware');
  * @swagger
  * /accounts:
  *   get:
- *     summary: Get all user Facebook accounts
+ *     summary: Get all user Facebook accounts with proxies
  *     tags: [FacebookAccounts]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: List of Facebook accounts
+ *         description: List of Facebook accounts with proxy information
  *         content:
  *           application/json:
  *             schema:
  *               type: array
  *               items:
- *                 $ref: '#/components/schemas/FacebookAccount'
+ *                 allOf:
+ *                   - $ref: '#/components/schemas/FacebookAccount'
+ *                   - type: object
+ *                     properties:
+ *                       proxy:
+ *                         $ref: '#/components/schemas/Proxy'
  *       401:
  *         description: Unauthorized
  *       500:
@@ -245,21 +336,12 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *       500:
  *         description: Server error
  */
+
 router.post('/', authMiddleware, controller.addAccount);
-
 router.get('/', authMiddleware, controller.getAccounts);
-
 router.put('/:id', authMiddleware, controller.updateAccount);
-
-
 router.patch('/:id', authMiddleware, controller.patchAccount);
-
-
 router.delete('/:id', authMiddleware, controller.deleteAccount);
-
-
 router.get('/:id/ad-accounts', authMiddleware, controller.getAdAccounts);
-
-
 
 module.exports = router;

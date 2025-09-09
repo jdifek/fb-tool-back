@@ -1,62 +1,111 @@
 const facebookService = require('../services/facebookService');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-
 exports.addAccount = async (req, res, next) => {
   const userId = req.user.id;
-  const { accessToken } = req.body;
+  const { accessToken, proxyId, autoAssignProxy = false } = req.body;
 
   try {
     const fbUser = await facebookService.getMe(accessToken);
     const fbAdAccounts = await facebookService.getAdAccounts(accessToken);
 
-    let account = await prisma.facebookAccount.upsert({
-      where: { fbUserId: fbUser.id },
-      update: { accessToken, name: fbUser.name },
-      create: {
-        userId,
-        fbUserId: fbUser.id,
-        name: fbUser.name,
-        accessToken,
-      }
-    });
-
-    for (const ad of fbAdAccounts) {
-      await prisma.adAccount.upsert({
-        where: { adAccountId: ad.id },
-        update: {
-          name: ad.name,
-          status: mapStatus(ad.account_status),
-          currency: ad.currency,
-          timezone: ad.timezone_name,
-          businessId: ad.business?.id ?? null,
-        },
+    // Используем транзакцию для атомарности операции
+    const result = await prisma.$transaction(async (tx) => {
+      // Создаем/обновляем Facebook аккаунт
+      let account = await tx.facebookAccount.upsert({
+        where: { fbUserId: fbUser.id },
+        update: { accessToken, name: fbUser.name },
         create: {
-          facebookAccountId: account.id,
-          adAccountId: ad.id,
-          name: ad.name,
-          status: mapStatus(ad.account_status),
-          currency: ad.currency,
-          timezone: ad.timezone_name,
-          businessId: ad.business?.id ?? null,
-          hasCard: false,
-          hasPixel: false
+          userId,
+          fbUserId: fbUser.id,
+          name: fbUser.name,
+          accessToken,
         }
       });
-    }
 
-    res.status(201).json(account);
+      // Если передан ID прокси, привязываем его к аккаунту
+      if (proxyId) {
+        // Проверяем, что прокси существует и не занят
+        const proxy = await tx.proxy.findUnique({
+          where: { id: proxyId }
+        });
+
+        if (!proxy) {
+          throw new Error(`Proxy with ID ${proxyId} not found`);
+        }
+
+        if (proxy.facebookAccountId && proxy.facebookAccountId !== account.id) {
+          throw new Error(`Proxy with ID ${proxyId} is already linked to another account`);
+        }
+
+        // Привязываем прокси к аккаунту
+        const updatedProxy = await tx.proxy.update({
+          where: { id: proxyId },
+          data: { facebookAccountId: account.id }
+        });
+
+        account.proxy = updatedProxy;
+      } 
+      // Или автоматически назначаем свободный прокси
+      else if (autoAssignProxy) {
+        const freeProxy = await tx.proxy.findFirst({
+          where: {
+            facebookAccountId: null, // свободный прокси
+            status: 'ACTIVE'         // только активные
+          }
+        });
+
+        if (freeProxy) {
+          const updatedProxy = await tx.proxy.update({
+            where: { id: freeProxy.id },
+            data: { facebookAccountId: account.id }
+          });
+          
+          account.proxy = updatedProxy;
+        }
+      }
+
+      // Создаем/обновляем рекламные аккаунты
+      for (const ad of fbAdAccounts) {
+        await tx.adAccount.upsert({
+          where: { adAccountId: ad.id },
+          update: {
+            name: ad.name,
+            status: mapStatus(ad.account_status),
+            currency: ad.currency,
+            timezone: ad.timezone_name,
+            businessId: ad.business?.id ?? null,
+          },
+          create: {
+            facebookAccountId: account.id,
+            adAccountId: ad.id,
+            name: ad.name,
+            status: mapStatus(ad.account_status),
+            currency: ad.currency,
+            timezone: ad.timezone_name,
+            businessId: ad.business?.id ?? null,
+            hasCard: false,
+            hasPixel: false
+          }
+        });
+      }
+
+      return account;
+    });
+
+    res.status(201).json(result);
   } catch (err) {
     next(err);
   }
 };
-
 exports.getAccounts = async (req, res, next) => {
   const user = req.user;
   const where = user.role === 'SUPERADMIN' ? {} : { userId: user.id };
 
-  const accounts = await prisma.facebookAccount.findMany({ where });
-  res.json(accounts);
+  const accounts = await prisma.facebookAccount.findMany({
+    where,
+    include: { Proxy: true } // добавить это
+  }); res.json(accounts);
 };
 // PUT /accounts/:id
 exports.updateAccount = async (req, res, next) => {
