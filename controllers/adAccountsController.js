@@ -1,5 +1,49 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const axios = require("axios");
+
+const GRAPH_API_URL = "https://graph.facebook.com/v19.0";
+
+// вспомогательный класс для работы с Facebook API
+class FacebookService {
+  constructor(accessToken) {
+    this.accessToken = accessToken;
+  }
+
+  // оставить комментарий под постом (или рекламным креативом)
+  async commentOnPost(postId, message) {
+    try {
+      const response = await axios.post(
+        `${GRAPH_API_URL}/${postId}/comments`,
+        {
+          message,
+          access_token: this.accessToken
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error posting comment:", error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  // получить список постов страницы (если нужно)
+  async getPosts(pageId) {
+    try {
+      const response = await axios.get(
+        `${GRAPH_API_URL}/${pageId}/posts`,
+        { params: { access_token: this.accessToken } }
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error("Error fetching posts:", error.response?.data || error.message);
+      throw error;
+    }
+  }
+}
+
+// ================== ROUTES ==================
+
 // GET /ad-accounts
 exports.getAdAccounts = async (req, res, next) => {
   try {
@@ -122,7 +166,7 @@ exports.updateAdAccount = async (req, res, next) => {
 // PATCH /ad-accounts/:id/auto-commenting
 exports.toggleAutoCommenting = async (req, res, next) => {
   const adAccountId = parseInt(req.params.id);
-  const { enabled } = req.body;
+  const { enabled, testPostId } = req.body;
 
   try {
     const adAccount = await prisma.adAccount.findUnique({
@@ -139,10 +183,18 @@ exports.toggleAutoCommenting = async (req, res, next) => {
 
     const updated = await prisma.adAccount.update({
       where: { id: adAccountId },
-      data: {
-        autoCommenting: enabled
-      }
+      data: { autoCommenting: enabled }
     });
+
+    // если включили и передали testPostId → пробуем оставить комментарий
+    if (enabled && testPostId) {
+      try {
+        const fbService = new FacebookService(adAccount.facebookAccount.accessToken);
+        await fbService.commentOnPost(testPostId, "🔥 Авто-комментарии активированы!");
+      } catch (e) {
+        console.error("Не удалось оставить тестовый комментарий:", e.message);
+      }
+    }
 
     res.json(updated);
   } catch (err) {
