@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const proxyController = require('../controllers/proxyController');
 const authMiddleware = require('../middlewares/authMiddleware');
+
 /**
  * @swagger
  * components:
@@ -40,7 +41,7 @@ const authMiddleware = require('../middlewares/authMiddleware');
  * @swagger
  * /proxies:
  *   post:
- *     summary: Create a proxy (without linking to Facebook account)
+ *     summary: Create a proxy (with automatic check)
  *     tags: [Proxies]
  *     security:
  *       - bearerAuth: []
@@ -66,13 +67,31 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *               password:
  *                 type: string
  *                 example: "proxypass"
+ *               autoCheck:
+ *                 type: boolean
+ *                 example: true
+ *                 description: Automatically check proxy on creation
  *     responses:
  *       200:
  *         description: Proxy created successfully
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Proxy'
+ *               type: object
+ *               properties:
+ *                 proxy:
+ *                   $ref: '#/components/schemas/Proxy'
+ *                 checkResult:
+ *                   type: object
+ *                   properties:
+ *                     success:
+ *                       type: boolean
+ *                     ip:
+ *                       type: string
+ *                     responseTime:
+ *                       type: integer
+ *                     status:
+ *                       type: string
  *       400:
  *         description: Bad request
  *       401:
@@ -80,6 +99,7 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *       500:
  *         description: Server error
  */
+router.post('/', authMiddleware, proxyController.addProxy);
 
 /**
  * @swagger
@@ -89,6 +109,13 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *     tags: [Proxies]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [ACTIVE, DEAD]
+ *         description: Filter by status
  *     responses:
  *       200:
  *         description: List of proxies
@@ -103,6 +130,96 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *       500:
  *         description: Server error
  */
+router.get('/', authMiddleware, proxyController.getProxies);
+
+/**
+ * @swagger
+ * /proxies/check-all:
+ *   post:
+ *     summary: Check all proxies
+ *     tags: [Proxies]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Check results for all proxies
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 total:
+ *                   type: integer
+ *                 alive:
+ *                   type: integer
+ *                 dead:
+ *                   type: integer
+ *                 results:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       proxyId:
+ *                         type: integer
+ *                       ip:
+ *                         type: string
+ *                       port:
+ *                         type: integer
+ *                       success:
+ *                         type: boolean
+ *                       responseTime:
+ *                         type: integer
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.post('/check-all', authMiddleware, proxyController.checkAllProxies);
+
+/**
+ * @swagger
+ * /proxies/{id}/check:
+ *   post:
+ *     summary: Check a single proxy
+ *     tags: [Proxies]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Proxy ID
+ *     responses:
+ *       200:
+ *         description: Proxy check result
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 proxy:
+ *                   $ref: '#/components/schemas/Proxy'
+ *                 checkResult:
+ *                   type: object
+ *                   properties:
+ *                     success:
+ *                       type: boolean
+ *                     ip:
+ *                       type: string
+ *                     responseTime:
+ *                       type: integer
+ *                     status:
+ *                       type: string
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Proxy not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:id/check', authMiddleware, proxyController.checkProxy);
 
 /**
  * @swagger
@@ -148,6 +265,7 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *       500:
  *         description: Server error
  */
+router.patch('/:id/link', authMiddleware, proxyController.linkProxy);
 
 /**
  * @swagger
@@ -203,6 +321,7 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *       500:
  *         description: Server error
  */
+router.put('/:id', authMiddleware, proxyController.updateProxy);
 
 /**
  * @swagger
@@ -237,15 +356,6 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *       500:
  *         description: Server error
  */
-router.post('/', authMiddleware, proxyController.addProxy);
-
-
-router.get('/', authMiddleware, proxyController.getProxies);
-
-router.patch('/:id/link', authMiddleware, proxyController.linkProxy);
-
-router.put('/:id', authMiddleware, proxyController.updateProxy);
-
 router.delete('/:id', authMiddleware, proxyController.deleteProxy);
 
 module.exports = router;

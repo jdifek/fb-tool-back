@@ -67,7 +67,8 @@ model Proxy {
   port              Int
   username          String?
   password          String?
-  status            ProxyStatus      @default(ACTIVE) // живой / неживой
+  status            ProxyStatus      @default(ACTIVE)
+  lastChecked       DateTime?        // Добавьте это поле
   facebookAccount   FacebookAccount? @relation(fields: [facebookAccountId], references: [id])
   facebookAccountId Int?             @unique
   createdAt         DateTime         @default(now())
