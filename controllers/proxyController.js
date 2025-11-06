@@ -1,26 +1,21 @@
 const { PrismaClient, ProxyStatus } = require('@prisma/client');
 const axios = require('axios');
-const { HttpsProxyAgent } = require('https-proxy-agent');
+const { SocksProxyAgent } = require('socks-proxy-agent');
 const prisma = new PrismaClient();
 
 /**
- * Проверка работоспособности прокси
+ * Проверка работоспособности прокси (socks5)
  */
 async function checkProxyConnection(ip, port, username, password, timeout = 10000) {
   try {
-    // Формирование URL прокси
-    let proxyUrl;
-    if (username && password) {
-      proxyUrl = `http://${username}:${password}@${ip}:${port}`;
-    } else {
-      proxyUrl = `http://${ip}:${port}`;
-    }
+    const proxyUrl = username && password
+      ? `socks5h://${username}:${password}@${ip}:${port}`
+      : `socks5h://${ip}:${port}`;
 
-    // Создание прокси агента
-    const agent = new HttpsProxyAgent(proxyUrl);
+    const agent = new SocksProxyAgent(proxyUrl);
 
-    // Проверка через запрос к API
     const startTime = Date.now();
+
     const response = await axios.get('https://api.ipify.org?format=json', {
       httpsAgent: agent,
       httpAgent: agent,
@@ -33,13 +28,13 @@ async function checkProxyConnection(ip, port, username, password, timeout = 1000
     return {
       success: true,
       ip: response.data.ip,
-      responseTime: responseTime,
-      status: ProxyStatus.ACTIVE // Изменено с ALIVE на ACTIVE
+      responseTime,
+      status: ProxyStatus.ACTIVE
     };
 
   } catch (error) {
     console.error('Proxy check error:', error.message);
-    
+
     return {
       success: false,
       error: error.message,
@@ -56,7 +51,10 @@ module.exports = {
     try {
       const { ip, port, username, password, autoCheck = true } = req.body;
 
-      // Проверяем прокси перед добавлением, если autoCheck = true
+      if (!ip || !port || !username || !password) {
+        return res.status(400).json({ error: "Please provide all required fields: ip, port, username, password" });
+      }
+
       let status = ProxyStatus.DEAD;
       let checkResult = null;
 

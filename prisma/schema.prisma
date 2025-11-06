@@ -23,6 +23,7 @@ model User {
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   FacebookAccount FacebookAccount[]
+  CommentTasks    CommentTask[]
 }
 
 enum Role {
@@ -42,6 +43,7 @@ model FacebookAccount {
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   Proxy       Proxy?
+  CommentTasks    CommentTask[]
 }
 
 model AdAccount {
@@ -82,6 +84,7 @@ enum ProxyStatus {
 
 enum FbAccountStatus {
   ACTIVE
+  INACTIVE
   CHECKPOINT
   BANNED
 }
@@ -91,4 +94,27 @@ enum AdAccountStatus {
   GRACE
   CLOSED
   BLOCKED
+}
+
+enum CommentAction {
+  DELETE
+  HIDE
+  TRACK
+}
+
+model CommentTask {
+  id                Int             @id @default(autoincrement())
+  userId            Int
+  facebookAccountId Int
+  postId            String
+  knownCommentIds   String[]        @default([])
+  lastCheckedAt     DateTime?
+  isActive          Boolean         @default(true)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  action            CommentAction   @default(TRACK)
+  notification      Boolean         @default(false)
+
+  facebookAccount   FacebookAccount @relation(fields: [facebookAccountId], references: [id])
+  user              User            @relation(fields: [userId], references: [id])
 }

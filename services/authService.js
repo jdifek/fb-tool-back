@@ -12,42 +12,47 @@ function generateTokens(user) {
 }
 
 exports.register = async ({ email, password, firstName, lastName }) => {
-  try {
-    // Перевіряємо, чи юзер уже є
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (existingUser) {
-      return { error: "User with this email already exists" };
-    }
-
-    // Хешуємо пароль
-    const hash = await bcrypt.hash(password, 10);
-
-    // Створюємо нового юзера
-    const user = await prisma.user.create({
-      data: { email, passwordHash: hash, firstName, lastName },
-    });
-
-    return { userId: user.id };
-
-  } catch (error) {
-    // Prisma помилка на унікальність (P2002)
-    if (error.code === "P2002" && error.meta?.target.includes("email")) {
-      return { error: "Email already registered" };
-    }
-
-    console.error("Registration error:", error);
-    return { error: "Registration failed. Please try again later." };
+  if (!email || !password || !firstName || !lastName) {
+    throw new Error('Please fill in all fields');
   }
+
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (existingUser) {
+    throw new Error('User with this email already exists');
+  }
+
+  const hash = await bcrypt.hash(password, 10);
+
+  const user = await prisma.user.create({
+    data: {
+      email,
+      passwordHash: hash,
+      firstName,
+      lastName,
+    },
+  });
+
+  return { userId: user.id };
 };
 
+
 exports.login = async ({ email, password }) => {
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
-    throw new Error('Invalid credentials');
+  if (!email || !password) {
+    throw new Error('Email and password are required');
   }
+
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  if (!(await bcrypt.compare(password, user.passwordHash))) {
+    throw new Error('Wrong password');
+  }
+
   return generateTokens(user);
 };
 

@@ -294,9 +294,7 @@ router.post('/', authMiddleware, controller.createAdAccount);
 
 router.patch('/:id', authMiddleware, controller.updateAdAccount);
 
-
 router.patch('/:id/auto-commenting', authMiddleware, controller.toggleAutoCommenting);
-
 
 router.patch('/bulk', authMiddleware, controller.bulkUpdate);
 

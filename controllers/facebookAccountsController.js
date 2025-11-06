@@ -112,6 +112,7 @@ exports.getAccounts = async (req, res, next) => {
     include: { Proxy: true } // добавить это
   }); res.json(accounts);
 };
+
 // PUT /accounts/:id
 exports.updateAccount = async (req, res, next) => {
   const accountId = parseInt(req.params.id);
@@ -141,28 +142,66 @@ exports.updateAccount = async (req, res, next) => {
 
 // PATCH /accounts/:id
 exports.patchAccount = async (req, res, next) => {
-  const accountId = parseInt(req.params.id);
-  const updates = req.body;
-
   try {
+    const accountId = Number(req.params.id);
+    const { name, fbUserId, accessToken, status, Proxy } = req.body;
+
     const account = await prisma.facebookAccount.findUnique({
-      where: { id: accountId }
+      where: { id: accountId },
     });
 
-    if (!account) return res.status(404).json({ message: 'Account not found' });
+    if (!account) {
+      return res.status(404).json({ message: 'Account not found' });
+    }
 
     if (req.user.role !== 'SUPERADMIN' && account.userId !== req.user.id) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
+    let finalStatus = account.status;
+    let proxyData = null;
+
+    if (Proxy) {
+      proxyData = await prisma.proxy.findUnique({ where: { id: Proxy } });
+      if (!proxyData) {
+        return res.status(400).json({ error: 'Proxy not found' });
+      }
+    }
+
+    if (accessToken) {
+      try {
+        const profile = await facebookService.getMe(accessToken, proxyData);
+        if (profile.id) {
+          finalStatus = 'ACTIVE';
+        }
+      } catch (err) {
+        finalStatus = 'INACTIVE';
+      }
+    }
+
+    if (proxyData && proxyData.status !== 'ACTIVE') {
+      finalStatus = 'INACTIVE';
+    }
+
+    const dataToUpdate = {
+      name,
+      fbUserId,
+      accessToken,
+      status: finalStatus,
+    };
+
+    if (proxyData) {
+      dataToUpdate.Proxy = { connect: { id: proxyData.id } };
+    }
+
     const updated = await prisma.facebookAccount.update({
       where: { id: accountId },
-      data: updates
+      data: dataToUpdate,
     });
 
     res.json(updated);
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };
 
@@ -180,6 +219,14 @@ exports.deleteAccount = async (req, res, next) => {
     if (req.user.role !== 'SUPERADMIN' && account.userId !== req.user.id) {
       return res.status(403).json({ message: 'Forbidden' });
     }
+    
+    await prisma.adAccount.deleteMany({
+      where: { facebookAccountId: accountId }
+    });
+
+    await prisma.commentTask.deleteMany({
+      where: { facebookAccountId: accountId }
+    });
 
     await prisma.facebookAccount.delete({
       where: { id: accountId }
@@ -190,6 +237,7 @@ exports.deleteAccount = async (req, res, next) => {
     next(err);
   }
 };
+
 exports.getAdAccounts = async (req, res, next) => {
   const accountId = parseInt(req.params.id);
   const account = await prisma.facebookAccount.findUnique({
